@@ -26,7 +26,7 @@ export const T = {
 export const TOTAL = 1200;
 
 // Copy
-export const HOOK_LINES = ["10 apps.", "1 solo dev.", "Built with AI."];
+export const HOOK_LINES = ["10 apps.", "1 solo dev.", "Built with Love."];
 export const SITE = "spokiostudio.com";
 // Optional: set to e.g. "@yourhandle" to show it on the end card.
 export const X_HANDLE = "";

@@ -18,7 +18,7 @@ Needs Node 18+. The font (Baloo 2) is fetched from Google Fonts on first render.
 
 | Time | Scene |
 |---|---|
-| 0-4s | Hook: mascot + "10 apps. 1 solo dev. Built with AI." |
+| 0-4s | Hook: mascot + "10 apps. 1 solo dev. Built with Love." |
 | 4-24s | The lineup: 10 app cards, 2s each, cut on the beat |
 | 24-34s | I build in public + tokenmaxxing + Prompt > Build > Ship > Share |
 | 34-40s | End card: spokiostudio.com + Follow on X (fades to cream so the loop restarts cleanly) |

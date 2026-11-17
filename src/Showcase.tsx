@@ -36,11 +36,8 @@ const Card: React.FC<{app: AppInfo}> = ({app}) => (
       style={{
         width: 280,
         height: 280,
-        borderRadius: 64,
-        background: app.color,
-        border: `6px solid ${COLORS.ink}`,
-        boxShadow: `8px 8px 0 ${COLORS.ink}`,
-        boxSizing: "border-box",
+        borderRadius: 60,
+        background: app.icon ? undefined : app.color,
         overflow: "hidden",
         display: "flex",
         alignItems: "center",
