@@ -42,14 +42,14 @@ export type AppInfo = {
 
 // One card per app. Drop real icons into /public/icons and set `icon`.
 export const APPS: AppInfo[] = [
-  {name: "Spokio", color: COLORS.teal},
-  {name: "MiLove", color: COLORS.coral},
-  {name: "Palette", color: COLORS.mustard},
-  {name: "Riidrr", color: COLORS.ink},
-  {name: "DraftX", color: COLORS.tealDark},
-  {name: "Onlink", color: COLORS.coral},
-  {name: "VietCal", color: COLORS.teal},
-  {name: "BYOK Chat", color: COLORS.ink, tagline: "AI chat with your own API key"},
-  {name: "Cinefy", color: COLORS.mustard},
-  {name: "Inkribe", color: COLORS.tealDark, tagline: "Video captions with Whisper"},
+  {name: "Spokio", color: COLORS.teal, tagline: "Text-to-speech for documents", icon: "icons/spokio.png"},
+  {name: "MiLove", color: COLORS.coral, tagline: "Your relationship timeline", icon: "icons/milove.png"},
+  {name: "Palette", color: COLORS.mustard, tagline: "Colors from photos to code", icon: "icons/palette.png"},
+  {name: "Riidrr", color: COLORS.ink, tagline: "Audiobooks, fully offline", icon: "icons/riidrr.png"},
+  {name: "DraftX", color: COLORS.tealDark, tagline: "Social drafts & variants", icon: "icons/draftx.png"},
+  {name: "Onlink", color: COLORS.coral, tagline: "Spot internet dropouts", icon: "icons/onlink.png"},
+  {name: "VietCal", color: COLORS.teal, tagline: "Lunar dates & good days", icon: "icons/vietcal.png"},
+  {name: "BYOK Chat", color: COLORS.ink, tagline: "AI chat with your own API key", icon: "icons/byokchat.png"},
+  {name: "Cinefy", color: COLORS.mustard, tagline: "Movies, shows & celebrities", icon: "icons/cinefy.png"},
+  {name: "Inkribe", color: COLORS.tealDark, tagline: "Video captions with Whisper", icon: "icons/inkribe.png"},
 ];

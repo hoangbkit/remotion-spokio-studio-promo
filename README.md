@@ -27,7 +27,7 @@ Needs Node 18+. The font (Baloo 2) is fetched from Google Fonts on first render.
 
 - `src/config.ts`: copy, app list, taglines, colors, site URL, optional `X_HANDLE`.
 - Real app icons: put PNGs in `public/icons/` and set `icon` on that app.
-- Only BYOK Chat and Inkribe have taglines; the rest show "by Spokio Studio". Add `tagline` to any app.
+- Each app has a short `tagline` shown under its name on the card.
 - Scene files: `src/Hook.tsx`, `Showcase.tsx`, `Angle.tsx`, `Cta.tsx`. Mascot: `src/Mascot.tsx`.
 - SFX placement: `src/PromoAudio.tsx`.
 
