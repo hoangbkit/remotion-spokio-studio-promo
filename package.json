@@ -1,0 +1,25 @@
+{
+  "name": "spokio-studio-promo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Spokio Studio promo video (16:9, 1920x1080, 40s) built with Remotion",
+  "scripts": {
+    "dev": "remotion studio src/index.ts",
+    "build": "remotion render src/index.ts Promo out/spokio-studio-promo.mp4 --codec=h264 --crf=16",
+    "build:loop": "remotion render src/index.ts Promo out/spokio-studio-promo.webm --codec=vp9 --muted",
+    "poster": "remotion still src/index.ts Promo out/poster.png --frame=300",
+    "audio": "python3 scripts/make_audio.py",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.544",
+    "@remotion/google-fonts": "4.0.544",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "4.0.544"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "typescript": "^5.6.3"
+  }
+}
