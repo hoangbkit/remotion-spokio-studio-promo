@@ -38,11 +38,11 @@ jobs:
 
       - name: Render videos
         run: |
-          npm run build
+          npm run build:all
           npm run build:loop
 
       - name: Render poster
-        run: npm run poster
+        run: npm run poster:all
 
       - name: Stage release assets
         run: |

@@ -5,6 +5,12 @@ export const WIDTH = 1920;
 export const HEIGHT = 1080;
 export const BEAT = 15; // frames per beat (music is 120 BPM at 30 fps)
 
+export const FORMATS = {
+  landscape: {id: "Promo", width: WIDTH, height: HEIGHT},
+  square: {id: "PromoSquare", width: 1080, height: 1080},
+  portrait: {id: "PromoVertical", width: 1080, height: 1920},
+} as const;
+
 export const COLORS = {
   cream: "#FAF3E3",
   creamDark: "#EFE4CB",

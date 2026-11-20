@@ -1,0 +1,1715 @@
+diff --git a/.github/workflows/render.yml b/.github/workflows/render.yml
+--- a/.github/workflows/render.yml
++++ b/.github/workflows/render.yml
+@@ -38,11 +38,11 @@
+ 
+       - name: Render videos
+         run: |
+-          npm run build
++          npm run build:all
+           npm run build:loop
+ 
+       - name: Render poster
+-        run: npm run poster
++        run: npm run poster:all
+ 
+       - name: Stage release assets
+         run: |
+diff --git a/README.md b/README.md
+--- a/README.md
++++ b/README.md
+@@ -1,15 +1,26 @@
+ # Spokio Studio promo (Remotion)
+ 
+-16:9, 1920x1080, 30 fps, 40 seconds, no voiceover (captions + music + SFX).
++Responsive promo video in 3 formats (16:9 `1920x1080`, 1:1 `1080x1080`, 9:16 `1080x1920`), 30 fps, 40 seconds, no voiceover (captions + music + SFX).
++
++## Formats
++
++| Composition | Aspect | Resolution | Best for |
++|---|---|---|---|
++| `Promo` | 16:9 | 1920x1080 | Website hero, YouTube, pinned X post |
++| `PromoSquare` | 1:1 | 1080x1080 | X feed, Reddit, LinkedIn |
++| `PromoVertical` | 9:16 | 1080x1920 | Reels, TikTok, YouTube Shorts |
+ 
+ ## Run it
+ 
+ ```bash
+ npm install
+-npm run dev          # opens Remotion Studio with live preview
+-npm run build        # renders out/spokio-studio-promo.mp4 (H.264)
+-npm run build:loop   # muted VP9 .webm for the website hero
+-npm run poster       # still frame for the video poster / X preview
++npm run dev            # opens Remotion Studio with live preview for all 3 formats
++npm run build          # renders out/spokio-studio-promo.mp4 (16:9, H.264)
++npm run build:square   # renders out/spokio-studio-promo-1x1.mp4 (1:1, H.264)
++npm run build:vertical # renders out/spokio-studio-promo-9x16.mp4 (9:16, H.264)
++npm run build:all      # renders all 3 MP4 formats
++npm run build:loop     # muted VP9 .webm for the website hero (also :square, :vertical)
++npm run poster:all     # still frames for all 3 formats (or `npm run poster` for 16:9)
+ ```
+ 
+ Needs Node 18+. The font (Baloo 2) is fetched from Google Fonts on first render.
+@@ -19,13 +30,14 @@
+ | Time | Scene |
+ |---|---|
+ | 0-4s | Hook: mascot + "10 apps. 1 solo dev. Built with Love." |
+-| 4-24s | The lineup: 10 app cards, 2s each, cut on the beat |
+-| 24-34s | I build in public + tokenmaxxing + Prompt > Build > Ship > Share |
+-| 34-40s | End card: spokiostudio.com + Follow on X (fades to cream so the loop restarts cleanly) |
++| 4-24s | The lineup: 10 app cards, 2s each, cut on the beat (+ live 2x5 app dock in 9:16) |
++| 24-34s | I build in public + tokenmaxxing + Prompt > Build > Ship > Share (2x2 loop in 1:1 & 9:16) |
++| 34-40s | End card: spokiostudio.com + Follow on X + app icon strip (fades to cream for clean loop) |
+ 
+ ## Edit
+ 
+-- `src/config.ts`: copy, app list, taglines, colors, site URL, optional `X_HANDLE`.
++- `src/config.ts`: copy, app list, taglines, colors, site URL, optional `X_HANDLE`, format resolutions.
++- `src/layout.ts`: responsive aspect-ratio hook and safe-area margins.
+ - Real app icons: put PNGs in `public/icons/` and set `icon` on that app.
+ - Each app has a short `tagline` shown under its name on the card.
+ - Scene files: `src/Hook.tsx`, `Showcase.tsx`, `Angle.tsx`, `Cta.tsx`. Mascot: `src/Mascot.tsx`.
+@@ -38,15 +50,16 @@
+ run `npm run audio` (needs ffmpeg for the mp3). To use your own track, replace the mp3 or change
+ `MUSIC_FILE` in `src/config.ts`; keep it 40s or trim in `PromoAudio.tsx`.
+ 
+-## Website / X
++## Website / Social
+ 
+-- Website hero: use the `.webm` (or mp4) with `autoplay muted loop playsinline` and the poster still.
+-- Pinned X post: upload the mp4 natively and put the URL in the post text.
++- Website hero: use the 16:9 `.webm` (or mp4) with `autoplay muted loop playsinline` and the poster still.
++- X / Reddit: upload the 1:1 (`PromoSquare`) or 16:9 mp4 natively and put the URL in the post text.
++- Reels / TikTok / Shorts: upload the 9:16 (`PromoVertical`) mp4 (key UI stays inside platform safe zones).
+ 
+ ## CI / releases
+ 
+ `.github/workflows/render.yml` runs only when triggered manually from the Actions tab.
+-It installs dependencies, typechecks, renders
+-the MP4, the muted webm loop and the poster still, then publishes them as a GitHub
+-pre-release tagged `remotion-build-<run-id>-<attempt>` with assets named
+-`<repo>-<output>-<tag>.<ext>`. The MP4 stays compatible with `mycli remotion play`.
++It installs dependencies, typechecks, renders all 3 MP4 formats, the muted webm loop, and
++posters for all 3 formats, then publishes them as a GitHub pre-release tagged
++`remotion-build-<run-id>-<attempt>` with assets named `<repo>-<output>-<tag>.<ext>`.
++The 16:9 MP4 stays compatible with `mycli remotion play`.
+diff --git a/package.json b/package.json
+--- a/package.json
++++ b/package.json
+@@ -2,12 +2,20 @@
+   "name": "spokio-studio-promo",
+   "version": "1.0.0",
+   "private": true,
+-  "description": "Spokio Studio promo video (16:9, 1920x1080, 40s) built with Remotion",
++  "description": "Spokio Studio promo video (16:9, 1:1, 9:16, 40s) built with Remotion",
+   "scripts": {
+     "dev": "remotion studio src/index.ts",
+     "build": "remotion render src/index.ts Promo out/spokio-studio-promo.mp4 --codec=h264 --crf=16",
++    "build:square": "remotion render src/index.ts PromoSquare out/spokio-studio-promo-1x1.mp4 --codec=h264 --crf=16",
++    "build:vertical": "remotion render src/index.ts PromoVertical out/spokio-studio-promo-9x16.mp4 --codec=h264 --crf=16",
++    "build:all": "npm run build && npm run build:square && npm run build:vertical",
+     "build:loop": "remotion render src/index.ts Promo out/spokio-studio-promo.webm --codec=vp9 --muted",
++    "build:loop:square": "remotion render src/index.ts PromoSquare out/spokio-studio-promo-1x1.webm --codec=vp9 --muted",
++    "build:loop:vertical": "remotion render src/index.ts PromoVertical out/spokio-studio-promo-9x16.webm --codec=vp9 --muted",
+     "poster": "remotion still src/index.ts Promo out/poster.png --frame=300",
++    "poster:square": "remotion still src/index.ts PromoSquare out/poster-1x1.png --frame=300",
++    "poster:vertical": "remotion still src/index.ts PromoVertical out/poster-9x16.png --frame=300",
++    "poster:all": "npm run poster && npm run poster:square && npm run poster:vertical",
+     "audio": "python3 scripts/make_audio.py",
+     "typecheck": "tsc --noEmit"
+   },
+diff --git a/src/Angle.tsx b/src/Angle.tsx
+--- a/src/Angle.tsx
++++ b/src/Angle.tsx
+@@ -1,6 +1,7 @@
+ import React from "react";
+ import {AbsoluteFill, interpolate, useCurrentFrame} from "remotion";
+ import {COLORS} from "./config";
++import {useLayout} from "./layout";
+ import {Mascot} from "./Mascot";
+ import {Arrow, Pop} from "./ui";
+ 
+@@ -12,70 +13,261 @@
+ ];
+ export const CHIP_FRAMES = [120, 150, 180, 210];
+ 
++const ChipBadge: React.FC<{
++  label: string;
++  bg: string;
++  fg: string;
++  fontSize: number;
++  width?: number;
++  height?: number;
++  padding?: string;
++}> = ({label, bg, fg, fontSize, width, height, padding}) => (
++  <div
++    style={{
++      background: bg,
++      color: fg,
++      fontSize,
++      fontWeight: 800,
++      width,
++      height,
++      padding,
++      borderRadius: 999,
++      border: `6px solid ${COLORS.ink}`,
++      boxShadow: `8px 8px 0 ${COLORS.ink}`,
++      display: "flex",
++      alignItems: "center",
++      justifyContent: "center",
++      boxSizing: "border-box",
++    }}
++  >
++    {label}
++  </div>
++);
++
+ export const Angle: React.FC = () => {
+   const frame = useCurrentFrame();
++  const {isLandscape, isPortrait, safeTop, safeBottom, safeX} = useLayout();
+   const pulse = 1 + 0.03 * Math.sin(Math.max(0, frame - 240) / 3);
+   const mascotIn = interpolate(frame, [0, 14], [0, 1], {extrapolateRight: "clamp"});
+ 
++  if (isLandscape) {
++    return (
++      <AbsoluteFill>
++        <div style={{position: "absolute", left: 110, top: 250, opacity: mascotIn}}>
++          <Mascot size={400} />
++        </div>
++        <div style={{position: "absolute", left: 640, top: 130, width: 1180, color: COLORS.ink}}>
++          <Pop at={0} style={{fontSize: 118, fontWeight: 800, lineHeight: 1.05}}>
++            I build in public.
++          </Pop>
++          <Pop at={30} style={{fontSize: 80, fontWeight: 800, color: COLORS.teal, marginTop: 26}}>
++            Tokenmaxxing:
++          </Pop>
++          <Pop at={45} style={{fontSize: 56, fontWeight: 600, lineHeight: 1.15}}>
++            build apps with heavy AI use
++          </Pop>
++          <Pop at={75} style={{fontSize: 56, fontWeight: 600, lineHeight: 1.15}}>
++            and share everything along the way.
++          </Pop>
++        </div>
++
++        <div
++          style={{
++            position: "absolute",
++            left: 640,
++            top: 650,
++            display: "flex",
++            alignItems: "center",
++            gap: 26,
++            transform: `scale(${pulse})`,
++            transformOrigin: "0% 50%",
++          }}
++        >
++          {CHIPS.map((c, i) => (
++            <React.Fragment key={c.label}>
++              <Pop at={CHIP_FRAMES[i]}>
++                <ChipBadge label={c.label} bg={c.bg} fg={c.fg} fontSize={54} padding="16px 40px" />
++              </Pop>
++              {i < CHIPS.length - 1 && (
++                <Pop at={CHIP_FRAMES[i] + 10}>
++                  <Arrow size={64} />
++                </Pop>
++              )}
++            </React.Fragment>
++          ))}
++        </div>
++        <Pop at={240} style={{position: "absolute", left: 640, top: 830, fontSize: 56, fontWeight: 800, color: COLORS.coral}}>
++          Then repeat.
++        </Pop>
++      </AbsoluteFill>
++    );
++  }
++
++  // 2x2 clockwise workflow cycle for 1:1 (square) and 9:16 (portrait):
++  // Prompt -> Build
++  //   ^        v
++  // Share  <- Ship
++  const chipW = isPortrait ? 305 : 268;
++  const chipH = isPortrait ? 106 : 90;
++  const chipFont = isPortrait ? 52 : 44;
++  const arrowSize = isPortrait ? 62 : 54;
++  const midRowH = isPortrait ? 78 : 62;
++  const midColW = isPortrait ? 96 : 82;
++
++  const cycleGrid = (
++    <div
++      style={{
++        marginTop: isPortrait ? 52 : 34,
++        display: "grid",
++        gridTemplateColumns: `${chipW}px ${midColW}px ${chipW}px`,
++        gridTemplateRows: `${chipH}px ${midRowH}px ${chipH}px`,
++        alignItems: "center",
++        justifyItems: "center",
++        transform: `scale(${pulse})`,
++        transformOrigin: "50% 50%",
++      }}
++    >
++      {/* Row 1: Prompt -> Build */}
++      <Pop at={CHIP_FRAMES[0]} origin="50% 50%">
++        <ChipBadge {...CHIPS[0]} fontSize={chipFont} width={chipW} height={chipH} />
++      </Pop>
++      <Pop at={CHIP_FRAMES[0] + 10} origin="50% 50%">
++        <Arrow size={arrowSize} />
++      </Pop>
++      <Pop at={CHIP_FRAMES[1]} origin="50% 50%">
++        <ChipBadge {...CHIPS[1]} fontSize={chipFont} width={chipW} height={chipH} />
++      </Pop>
++
++      {/* Row 2: Loop-back Up arrow (at f=240) and Down arrow (Build -> Ship) */}
++      <Pop at={240} origin="50% 50%">
++        <Arrow size={arrowSize} rotate={-90} color={COLORS.coral} />
++      </Pop>
++      <div />
++      <Pop at={CHIP_FRAMES[1] + 10} origin="50% 50%">
++        <Arrow size={arrowSize} rotate={90} />
++      </Pop>
++
++      {/* Row 3: Share <- Ship */}
++      <Pop at={CHIP_FRAMES[3]} origin="50% 50%">
++        <ChipBadge {...CHIPS[3]} fontSize={chipFont} width={chipW} height={chipH} />
++      </Pop>
++      <Pop at={CHIP_FRAMES[2] + 10} origin="50% 50%">
++        <Arrow size={arrowSize} rotate={180} />
++      </Pop>
++      <Pop at={CHIP_FRAMES[2]} origin="50% 50%">
++        <ChipBadge {...CHIPS[2]} fontSize={chipFont} width={chipW} height={chipH} />
++      </Pop>
++    </div>
++  );
++
++  if (isPortrait) {
++    return (
++      <AbsoluteFill
++        style={{
++          display: "flex",
++          flexDirection: "column",
++          alignItems: "center",
++          justifyContent: "center",
++          padding: `${safeTop}px ${safeX}px ${safeBottom}px`,
++          boxSizing: "border-box",
++          color: COLORS.ink,
++        }}
++      >
++        <div style={{opacity: mascotIn}}>
++          <Mascot size={240} />
++        </div>
++
++        <Pop at={0} origin="50% 50%" style={{fontSize: 84, fontWeight: 800, lineHeight: 1.05, marginTop: 18, textAlign: "center"}}>
++          I build in public.
++        </Pop>
++
++        {/* Neo-brutalist Tokenmaxxing definition card */}
++        <div
++          style={{
++            marginTop: 30,
++            width: "100%",
++            background: COLORS.paper,
++            border: `6px solid ${COLORS.ink}`,
++            borderRadius: 36,
++            boxShadow: `10px 10px 0 ${COLORS.ink}`,
++            padding: "26px 32px",
++            boxSizing: "border-box",
++            textAlign: "center",
++          }}
++        >
++          <Pop at={30} origin="50% 50%" style={{fontSize: 60, fontWeight: 800, color: COLORS.teal, lineHeight: 1.1}}>
++            Tokenmaxxing:
++          </Pop>
++          <Pop at={45} origin="50% 50%" style={{fontSize: 40, fontWeight: 600, lineHeight: 1.2, marginTop: 10}}>
++            build apps with heavy AI use
++          </Pop>
++          <Pop at={75} origin="50% 50%" style={{fontSize: 40, fontWeight: 600, lineHeight: 1.2}}>
++            and share everything along the way.
++          </Pop>
++        </div>
++
++        {cycleGrid}
++
++        <Pop at={240} origin="50% 50%" style={{marginTop: 42, fontSize: 58, fontWeight: 800, color: COLORS.coral}}>
++          Then repeat.
++        </Pop>
++      </AbsoluteFill>
++    );
++  }
++
++  // 1:1 Square layout
+   return (
+-    <AbsoluteFill>
+-      <div style={{position: "absolute", left: 110, top: 250, opacity: mascotIn}}>
+-        <Mascot size={400} />
++    <AbsoluteFill
++      style={{
++        display: "flex",
++        flexDirection: "column",
++        alignItems: "center",
++        justifyContent: "center",
++        padding: `${safeTop}px ${safeX}px`,
++        boxSizing: "border-box",
++        color: COLORS.ink,
++      }}
++    >
++      {/* Top lockup: Mascot + Headline */}
++      <div style={{display: "flex", alignItems: "center", gap: 30, width: "100%"}}>
++        <div style={{opacity: mascotIn, flexShrink: 0}}>
++          <Mascot size={180} />
++        </div>
++        <div style={{flex: 1}}>
++          <Pop at={0} style={{fontSize: 70, fontWeight: 800, lineHeight: 1.02}}>
++            I build in public.
++          </Pop>
++          <Pop at={30} style={{fontSize: 52, fontWeight: 800, color: COLORS.teal, marginTop: 10}}>
++            Tokenmaxxing:
++          </Pop>
++        </div>
+       </div>
+-      <div style={{position: "absolute", left: 640, top: 130, width: 1180, color: COLORS.ink}}>
+-        <Pop at={0} style={{fontSize: 118, fontWeight: 800, lineHeight: 1.05}}>
+-          I build in public.
+-        </Pop>
+-        <Pop at={30} style={{fontSize: 80, fontWeight: 800, color: COLORS.teal, marginTop: 26}}>
+-          Tokenmaxxing:
+-        </Pop>
+-        <Pop at={45} style={{fontSize: 56, fontWeight: 600, lineHeight: 1.15}}>
+-          build apps with heavy AI use
+-        </Pop>
+-        <Pop at={75} style={{fontSize: 56, fontWeight: 600, lineHeight: 1.15}}>
+-          and share everything along the way.
+-        </Pop>
+-      </div>
+-
++
++      {/* Definition strip card */}
+       <div
+         style={{
+-          position: "absolute",
+-          left: 640,
+-          top: 650,
+-          display: "flex",
+-          alignItems: "center",
+-          gap: 26,
+-          transform: `scale(${pulse})`,
+-          transformOrigin: "0% 50%",
++          marginTop: 18,
++          width: "100%",
++          background: COLORS.paper,
++          border: `5px solid ${COLORS.ink}`,
++          borderRadius: 28,
++          boxShadow: `8px 8px 0 ${COLORS.ink}`,
++          padding: "18px 28px",
++          boxSizing: "border-box",
++          textAlign: "center",
+         }}
+       >
+-        {CHIPS.map((c, i) => (
+-          <React.Fragment key={c.label}>
+-            <Pop at={CHIP_FRAMES[i]}>
+-              <div
+-                style={{
+-                  background: c.bg,
+-                  color: c.fg,
+-                  fontSize: 54,
+-                  fontWeight: 800,
+-                  padding: "16px 40px",
+-                  borderRadius: 999,
+-                  border: `6px solid ${COLORS.ink}`,
+-                  boxShadow: `8px 8px 0 ${COLORS.ink}`,
+-                }}
+-              >
+-                {c.label}
+-              </div>
+-            </Pop>
+-            {i < CHIPS.length - 1 && (
+-              <Pop at={CHIP_FRAMES[i] + 10}>
+-                <Arrow size={64} />
+-              </Pop>
+-            )}
+-          </React.Fragment>
+-        ))}
++        <Pop at={45} origin="50% 50%" style={{fontSize: 38, fontWeight: 600, lineHeight: 1.18}}>
++          build apps with heavy AI use
++        </Pop>
++        <Pop at={75} origin="50% 50%" style={{fontSize: 38, fontWeight: 600, lineHeight: 1.18}}>
++          and share everything along the way.
++        </Pop>
+       </div>
+-      <Pop at={240} style={{position: "absolute", left: 640, top: 830, fontSize: 56, fontWeight: 800, color: COLORS.coral}}>
++
++      {cycleGrid}
++
++      <Pop at={240} origin="50% 50%" style={{marginTop: 28, fontSize: 48, fontWeight: 800, color: COLORS.coral}}>
+         Then repeat.
+       </Pop>
+     </AbsoluteFill>
+diff --git a/src/Cta.tsx b/src/Cta.tsx
+--- a/src/Cta.tsx
++++ b/src/Cta.tsx
+@@ -1,55 +1,215 @@
+ import React from "react";
+-import {AbsoluteFill, spring, useCurrentFrame, useVideoConfig} from "remotion";
+-import {COLORS, SITE, X_HANDLE} from "./config";
++import {AbsoluteFill, Img, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig} from "remotion";
++import {APPS, COLORS, SITE, X_HANDLE} from "./config";
++import {useLayout} from "./layout";
+ import {Mascot} from "./Mascot";
+-import {Pop, XGlyph} from "./ui";
++import {Pop, Sparkle, XGlyph} from "./ui";
++
++const clamp = {extrapolateLeft: "clamp", extrapolateRight: "clamp"} as const;
+ 
+ export const Cta: React.FC = () => {
+   const frame = useCurrentFrame();
+   const {fps} = useVideoConfig();
++  const {isLandscape, isSquare, isPortrait, safeTop, safeBottom, safeX} = useLayout();
+   const m = spring({frame, fps, config: {damping: 9, stiffness: 120}});
+-
+-  return (
+-    <AbsoluteFill>
++  const s1 = spring({frame: frame - 14, fps, config: {damping: 10, stiffness: 160}});
++  const s2 = spring({frame: frame - 24, fps, config: {damping: 10, stiffness: 160}});
++
++  // Glossy diagonal sheen sweeps across the CTA pill twice
++  const sheen1 = interpolate(frame, [34, 58], [-35, 135], clamp);
++  const sheen2 = interpolate(frame, [106, 130], [-35, 135], clamp);
++  const sheenX = frame < 82 ? sheen1 : sheen2;
++  const sheenVisible = (frame >= 34 && frame <= 58) || (frame >= 106 && frame <= 130);
++
++  const mascotSize = isLandscape ? 500 : isPortrait ? 390 : 270;
++
++  const mascotBlock = (
++    <div style={{position: "relative", display: "flex", flexDirection: "column", alignItems: "center"}}>
+       <div
+         style={{
+           position: "absolute",
+-          left: 190,
+-          top: 230,
+-          transform: `scale(${m})`,
+-          transformOrigin: "50% 85%",
+-        }}
+-      >
+-        <Mascot size={520} wave />
++          left: -mascotSize * 0.03,
++          top: mascotSize * 0.06,
++          transform: `scale(${s1}) rotate(${frame * 1.4}deg)`,
++        }}
++      >
++        <Sparkle size={isSquare ? 34 : 44} color={COLORS.mustard} />
+       </div>
+-      <div style={{position: "absolute", left: 850, top: 260, width: 1000}}>
+-        <Pop at={0} style={{fontSize: 128, fontWeight: 800, color: COLORS.ink, lineHeight: 1.05}}>
+-          Follow along.
+-        </Pop>
+-        <Pop at={20} style={{marginTop: 40}}>
++      <div
++        style={{
++          position: "absolute",
++          right: -mascotSize * 0.05,
++          top: mascotSize * 0.14,
++          transform: `scale(${s2}) rotate(${-frame * 1.2}deg)`,
++        }}
++      >
++        <Sparkle size={isSquare ? 28 : 38} color={COLORS.teal} />
++      </div>
++      <div style={{transform: `scale(${m})`, transformOrigin: "50% 85%"}}>
++        <Mascot size={mascotSize} wave />
++      </div>
++      <div
++        style={{
++          width: mascotSize * 0.56,
++          height: mascotSize * 0.065,
++          borderRadius: "50%",
++          background: COLORS.ink,
++          opacity: 0.14 * m,
++          marginTop: -mascotSize * 0.03,
++        }}
++      />
++    </div>
++  );
++
++  const sitePill = (
++    <Pop at={20} origin={isLandscape ? "0% 50%" : "50% 50%"} style={{marginTop: isLandscape ? 34 : isPortrait ? 38 : 22}}>
++      <span
++        style={{
++          position: "relative",
++          overflow: "hidden",
++          display: "inline-block",
++          background: COLORS.teal,
++          color: COLORS.cream,
++          fontSize: isLandscape ? 78 : isPortrait ? 64 : 60,
++          fontWeight: 800,
++          padding: isLandscape ? "14px 46px" : isPortrait ? "16px 48px" : "12px 42px",
++          borderRadius: 999,
++          border: `6px solid ${COLORS.ink}`,
++          boxShadow: `10px 10px 0 ${COLORS.ink}`,
++        }}
++      >
++        {SITE}
++        {sheenVisible && (
+           <span
+             style={{
+-              display: "inline-block",
+-              background: COLORS.teal,
+-              color: COLORS.cream,
+-              fontSize: 80,
++              position: "absolute",
++              top: -20,
++              bottom: -20,
++              left: `${sheenX}%`,
++              width: 72,
++              background: "rgba(255, 253, 246, 0.35)",
++              transform: "skewX(-22deg)",
++              pointerEvents: "none",
++            }}
++          />
++        )}
++      </span>
++    </Pop>
++  );
++
++  const xRow = (
++    <Pop
++      at={45}
++      origin={isLandscape ? "0% 50%" : "50% 50%"}
++      style={{
++        marginTop: isLandscape ? 44 : isPortrait ? 44 : 30,
++        display: "flex",
++        alignItems: "center",
++        justifyContent: isLandscape ? "flex-start" : "center",
++        gap: isSquare ? 18 : 22,
++      }}
++    >
++      <XGlyph size={isLandscape ? 72 : isPortrait ? 66 : 56} />
++      <span style={{fontSize: isLandscape ? 56 : isPortrait ? 52 : 46, fontWeight: 800, color: COLORS.ink}}>
++        {X_HANDLE ? `Follow ${X_HANDLE} on X` : "Follow on X"}
++      </span>
++    </Pop>
++  );
++
++  // Celebratory 10-app icon strip reminding viewers of the full studio lineup
++  const iconSize = isPortrait ? 78 : isSquare ? 56 : 54;
++  const iconStrip = (
++    <div
++      style={{
++        marginTop: isLandscape ? 46 : isPortrait ? 52 : 36,
++        display: isPortrait ? "grid" : "flex",
++        gridTemplateColumns: isPortrait ? `repeat(5, ${iconSize}px)` : undefined,
++        gap: isPortrait ? 20 : 14,
++        alignItems: "center",
++        justifyContent: isLandscape ? "flex-start" : "center",
++      }}
++    >
++      {APPS.map((app, i) => {
++        const p = spring({frame: frame - (58 + i * 2), fps, config: {damping: 12, stiffness: 180}});
++        const badgeFg = app.color === COLORS.mustard ? COLORS.ink : COLORS.cream;
++        return (
++          <div
++            key={app.name}
++            style={{
++              width: iconSize,
++              height: iconSize,
++              borderRadius: Math.round(iconSize * 0.25),
++              overflow: "hidden",
++              background: app.icon ? COLORS.paper : app.color,
++              border: `4px solid ${COLORS.ink}`,
++              boxShadow: `4px 4px 0 ${COLORS.ink}`,
++              transform: `scale(${p})`,
++              opacity: p,
++              display: "flex",
++              alignItems: "center",
++              justifyContent: "center",
++              color: badgeFg,
++              fontSize: Math.round(iconSize * 0.5),
+               fontWeight: 800,
+-              padding: "14px 46px",
+-              borderRadius: 999,
+-              border: `6px solid ${COLORS.ink}`,
+-              boxShadow: `10px 10px 0 ${COLORS.ink}`,
++              boxSizing: "border-box",
+             }}
+           >
+-            {SITE}
+-          </span>
+-        </Pop>
+-        <Pop at={45} style={{marginTop: 54, display: "flex", alignItems: "center", gap: 22}}>
+-          <XGlyph size={76} />
+-          <span style={{fontSize: 58, fontWeight: 800, color: COLORS.ink}}>
+-            {X_HANDLE ? `Follow ${X_HANDLE} on X` : "Follow on X"}
+-          </span>
+-        </Pop>
+-      </div>
++            {app.icon ? (
++              <Img src={staticFile(app.icon)} style={{width: "100%", height: "100%", objectFit: "cover"}} />
++            ) : (
++              app.name.charAt(0)
++            )}
++          </div>
++        );
++      })}
++    </div>
++  );
++
++  if (isLandscape) {
++    return (
++      <AbsoluteFill>
++        <div style={{position: "absolute", left: 185, top: 245}}>{mascotBlock}</div>
++        <div style={{position: "absolute", left: 830, top: 235, width: 990}}>
++          <Pop at={0} style={{fontSize: 124, fontWeight: 800, color: COLORS.ink, lineHeight: 1.05}}>
++            Follow along.
++          </Pop>
++          {sitePill}
++          {xRow}
++          {iconStrip}
++        </div>
++      </AbsoluteFill>
++    );
++  }
++
++  return (
++    <AbsoluteFill
++      style={{
++        display: "flex",
++        flexDirection: "column",
++        alignItems: "center",
++        justifyContent: "center",
++        padding: `${safeTop}px ${safeX}px ${safeBottom}px`,
++        boxSizing: "border-box",
++        textAlign: "center",
++      }}
++    >
++      {mascotBlock}
++      <Pop
++        at={0}
++        origin="50% 50%"
++        style={{
++          marginTop: isPortrait ? 32 : 14,
++          fontSize: isPortrait ? 100 : 88,
++          fontWeight: 800,
++          color: COLORS.ink,
++          lineHeight: 1.05,
++        }}
++      >
++        Follow along.
++      </Pop>
++      {sitePill}
++      {xRow}
++      {iconStrip}
+     </AbsoluteFill>
+   );
+ };
+diff --git a/src/Hook.tsx b/src/Hook.tsx
+--- a/src/Hook.tsx
++++ b/src/Hook.tsx
+@@ -1,59 +1,183 @@
+ import React from "react";
+-import {AbsoluteFill, spring, useCurrentFrame, useVideoConfig} from "remotion";
++import {AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig} from "remotion";
+ import {COLORS, HOOK_LINES} from "./config";
++import {useLayout} from "./layout";
+ import {Mascot} from "./Mascot";
+-import {Pop} from "./ui";
++import {Pop, Sparkle} from "./ui";
++
++const clamp = {extrapolateLeft: "clamp", extrapolateRight: "clamp"} as const;
+ 
+ export const Hook: React.FC = () => {
+   const frame = useCurrentFrame();
+   const {fps} = useVideoConfig();
++  const {isLandscape, isSquare, isPortrait, safeTop, safeBottom, safeX} = useLayout();
+   const m = spring({frame: frame - 6, fps, config: {damping: 9, stiffness: 120}});
++  const s1 = spring({frame: frame - 18, fps, config: {damping: 10, stiffness: 160}});
++  const s2 = spring({frame: frame - 28, fps, config: {damping: 10, stiffness: 160}});
++  const underlineW = interpolate(frame, [66, 82], [0, 100], clamp);
+   const lineColors = [COLORS.ink, COLORS.teal, COLORS.coral];
+ 
+-  return (
+-    <AbsoluteFill>
++  const mascotSize = isLandscape ? 510 : isPortrait ? 410 : 280;
++
++  const mascotBlock = (
++    <div style={{position: "relative", display: "flex", flexDirection: "column", alignItems: "center"}}>
++      {/* Twinkling sparkles around mascot */}
+       <div
+         style={{
+           position: "absolute",
+-          left: 200,
+-          top: 230,
++          left: -mascotSize * 0.04,
++          top: mascotSize * 0.08,
++          transform: `scale(${s1}) rotate(${frame * 1.2}deg)`,
++        }}
++      >
++        <Sparkle size={isSquare ? 34 : 46} color={COLORS.mustard} />
++      </div>
++      <div
++        style={{
++          position: "absolute",
++          right: -mascotSize * 0.04,
++          top: mascotSize * 0.16,
++          transform: `scale(${s2}) rotate(${-frame * 1.4}deg)`,
++        }}
++      >
++        <Sparkle size={isSquare ? 28 : 38} color={COLORS.coral} />
++      </div>
++
++      <div
++        style={{
+           transform: `scale(${m}) rotate(${(1 - m) * -20}deg)`,
+           transformOrigin: "50% 85%",
+         }}
+       >
+-        <Mascot size={540} />
++        <Mascot size={mascotSize} />
+       </div>
++      {/* Soft ground shadow ellipse */}
+       <div
+         style={{
+-          position: "absolute",
+-          left: 850,
+-          top: 250,
+-          width: 1000,
+-          fontWeight: 800,
+-          fontSize: 132,
+-          lineHeight: 1.05,
++          width: mascotSize * 0.56,
++          height: mascotSize * 0.065,
++          borderRadius: "50%",
++          background: COLORS.ink,
++          opacity: 0.14 * m,
++          marginTop: -mascotSize * 0.03,
++          transform: `scaleX(${0.92 + 0.08 * Math.sin(frame / 12)})`,
++        }}
++      />
++    </div>
++  );
++
++  const badge = (
++    <Pop at={90} origin={isLandscape ? "0% 50%" : "50% 50%"} style={{marginTop: isLandscape ? 38 : isPortrait ? 52 : 30}}>
++      <span
++        style={{
++          display: "inline-flex",
++          alignItems: "center",
++          gap: 16,
++          background: COLORS.ink,
++          color: COLORS.cream,
++          fontSize: isLandscape ? 44 : isPortrait ? 44 : 38,
++          fontWeight: 600,
++          padding: isSquare ? "10px 34px" : "12px 38px",
++          borderRadius: 999,
++          border: `5px solid ${COLORS.ink}`,
++          boxShadow: `8px 8px 0 ${COLORS.mustard}`,
+         }}
+       >
+-        {HOOK_LINES.map((line, i) => (
+-          <Pop key={line} at={30 + i * 15} style={{color: lineColors[i % lineColors.length]}}>
+-            {line}
+-          </Pop>
+-        ))}
+-        <Pop at={90} style={{marginTop: 36}}>
+-          <span
+-            style={{
+-              display: "inline-block",
+-              background: COLORS.ink,
+-              color: COLORS.cream,
+-              fontSize: 44,
+-              fontWeight: 600,
+-              padding: "10px 34px",
+-              borderRadius: 999,
+-            }}
+-          >
+-            Spokio Studio
+-          </span>
+-        </Pop>
++        <span
++          style={{
++            width: isSquare ? 16 : 20,
++            height: isSquare ? 16 : 20,
++            borderRadius: "50%",
++            background: COLORS.teal,
++            display: "inline-block",
++          }}
++        />
++        Spokio Studio
++      </span>
++    </Pop>
++  );
++
++  if (isLandscape) {
++    return (
++      <AbsoluteFill>
++        <div style={{position: "absolute", left: 195, top: 225}}>{mascotBlock}</div>
++        <div
++          style={{
++            position: "absolute",
++            left: 840,
++            top: 235,
++            width: 980,
++            fontWeight: 800,
++            fontSize: 130,
++            lineHeight: 1.05,
++          }}
++        >
++          {HOOK_LINES.map((line, i) => (
++            <Pop key={line} at={30 + i * 15} style={{color: lineColors[i % lineColors.length]}}>
++              {line}
++            </Pop>
++          ))}
++          {badge}
++        </div>
++      </AbsoluteFill>
++    );
++  }
++
++  // Centered editorial poster layout for 1:1 (square) and 9:16 (portrait)
++  return (
++    <AbsoluteFill
++      style={{
++        display: "flex",
++        flexDirection: "column",
++        alignItems: "center",
++        justifyContent: "center",
++        padding: `${safeTop}px ${safeX}px ${safeBottom}px`,
++        boxSizing: "border-box",
++      }}
++    >
++      {mascotBlock}
++
++      <div
++        style={{
++          marginTop: isPortrait ? 48 : 22,
++          fontWeight: 800,
++          fontSize: isPortrait ? 104 : 92,
++          lineHeight: 1.05,
++          textAlign: "center",
++          display: "flex",
++          flexDirection: "column",
++          alignItems: "center",
++        }}
++      >
++        {HOOK_LINES.map((line, i) => {
++          const isLast = i === HOOK_LINES.length - 1;
++          return (
++            <Pop
++              key={line}
++              at={30 + i * 15}
++              origin="50% 50%"
++              style={{
++                color: lineColors[i % lineColors.length],
++                position: "relative",
++                display: "inline-block",
++              }}
++            >
++              <span>{line}</span>
++              {isLast && (
++                <div
++                  style={{
++                    height: isPortrait ? 12 : 10,
++                    width: `${underlineW}%`,
++                    background: COLORS.mustard,
++                    borderRadius: 999,
++                    margin: "4px auto 0",
++                  }}
++                />
++              )}
++            </Pop>
++          );
++        })}
++        {badge}
+       </div>
+     </AbsoluteFill>
+   );
+diff --git a/src/Root.tsx b/src/Root.tsx
+--- a/src/Root.tsx
++++ b/src/Root.tsx
+@@ -1,15 +1,20 @@
+ import React from "react";
+ import {Composition} from "remotion";
+ import {Promo} from "./Promo";
+-import {FPS, HEIGHT, TOTAL, WIDTH} from "./config";
++import {FORMATS, FPS, TOTAL} from "./config";
+ 
+ export const Root: React.FC = () => (
+-  <Composition
+-    id="Promo"
+-    component={Promo}
+-    durationInFrames={TOTAL}
+-    fps={FPS}
+-    width={WIDTH}
+-    height={HEIGHT}
+-  />
++  <>
++    {Object.values(FORMATS).map(({id, width, height}) => (
++      <Composition
++        key={id}
++        id={id}
++        component={Promo}
++        durationInFrames={TOTAL}
++        fps={FPS}
++        width={width}
++        height={height}
++      />
++    ))}
++  </>
+ );
+diff --git a/src/Showcase.tsx b/src/Showcase.tsx
+--- a/src/Showcase.tsx
++++ b/src/Showcase.tsx
+@@ -10,83 +10,209 @@
+   useVideoConfig,
+ } from "remotion";
+ import {APPS, AppInfo, COLORS} from "./config";
++import {useLayout} from "./layout";
+ 
+ export const STEP = 60; // frames per app (4 beats)
+ const TRANS = 18; // slide time between apps
+-const SPACING = 640;
+ const clamp = {extrapolateLeft: "clamp", extrapolateRight: "clamp"} as const;
+ 
+-const Card: React.FC<{app: AppInfo}> = ({app}) => (
+-  <div
+-    style={{
+-      width: 520,
+-      height: 640,
+-      background: COLORS.paper,
+-      border: `8px solid ${COLORS.ink}`,
+-      borderRadius: 56,
+-      boxShadow: `14px 14px 0 ${COLORS.ink}`,
+-      boxSizing: "border-box",
+-      display: "flex",
+-      flexDirection: "column",
+-      alignItems: "center",
+-      paddingTop: 56,
+-    }}
+-  >
++type CardMetrics = {
++  width: number;
++  height: number;
++  iconSize: number;
++  iconRadius: number;
++  nameSize: number;
++  taglineSize: number;
++  radius: number;
++  barHeight: number;
++  padTop: number;
++};
++
++const Card: React.FC<{app: AppInfo; index: number; metrics: CardMetrics}> = ({app, index, metrics}) => {
++  const num = String(index + 1).padStart(2, "0");
++  const badgeFg = app.color === COLORS.mustard ? COLORS.ink : COLORS.cream;
++
++  return (
+     <div
+       style={{
+-        width: 280,
+-        height: 280,
+-        borderRadius: 60,
+-        background: app.icon ? undefined : app.color,
++        width: metrics.width,
++        height: metrics.height,
++        background: COLORS.paper,
++        border: `8px solid ${COLORS.ink}`,
++        borderRadius: metrics.radius,
++        boxShadow: `14px 14px 0 ${COLORS.ink}`,
++        boxSizing: "border-box",
+         overflow: "hidden",
+         display: "flex",
++        flexDirection: "column",
+         alignItems: "center",
+-        justifyContent: "center",
+-        color: app.color === COLORS.mustard ? COLORS.ink : COLORS.cream,
+-        fontSize: 170,
+-        fontWeight: 800,
++        position: "relative",
+       }}
+     >
+-      {app.icon ? (
+-        <Img src={staticFile(app.icon)} style={{width: "100%", height: "100%", objectFit: "cover"}} />
+-      ) : (
+-        app.name.charAt(0)
+-      )}
++      {/* Signature brand-color top bar */}
++      <div
++        style={{
++          width: "100%",
++          height: metrics.barHeight,
++          background: app.color,
++          borderBottom: `6px solid ${COLORS.ink}`,
++          flexShrink: 0,
++        }}
++      />
++
++      {/* App index pill */}
++      <div
++        style={{
++          position: "absolute",
++          top: metrics.barHeight + 22,
++          right: 26,
++          background: app.color,
++          color: badgeFg,
++          fontSize: 24,
++          fontWeight: 800,
++          padding: "4px 16px",
++          borderRadius: 999,
++          border: `4px solid ${COLORS.ink}`,
++        }}
++      >
++        #{num}
++      </div>
++
++      {/* Framed icon squircle */}
++      <div
++        style={{
++          marginTop: metrics.padTop,
++          width: metrics.iconSize,
++          height: metrics.iconSize,
++          borderRadius: metrics.iconRadius,
++          background: app.icon ? COLORS.paper : app.color,
++          border: `6px solid ${COLORS.ink}`,
++          boxShadow: `8px 8px 0 ${COLORS.ink}`,
++          overflow: "hidden",
++          display: "flex",
++          alignItems: "center",
++          justifyContent: "center",
++          color: badgeFg,
++          fontSize: Math.round(metrics.iconSize * 0.6),
++          fontWeight: 800,
++          flexShrink: 0,
++        }}
++      >
++        {app.icon ? (
++          <Img src={staticFile(app.icon)} style={{width: "100%", height: "100%", objectFit: "cover"}} />
++        ) : (
++          app.name.charAt(0)
++        )}
++      </div>
++
++      <div
++        style={{
++          marginTop: Math.round(metrics.height * 0.055),
++          fontSize: metrics.nameSize,
++          fontWeight: 800,
++          color: COLORS.ink,
++          textAlign: "center",
++          lineHeight: 1.05,
++          padding: "0 24px",
++        }}
++      >
++        {app.name}
++      </div>
++
++      <div
++        style={{
++          marginTop: 10,
++          fontSize: metrics.taglineSize,
++          fontWeight: 600,
++          color: COLORS.ink,
++          opacity: 0.72,
++          textAlign: "center",
++          padding: "0 36px",
++          lineHeight: 1.18,
++        }}
++      >
++        {app.tagline ?? "by Spokio Studio"}
++      </div>
+     </div>
+-    <div style={{marginTop: 44, fontSize: 70, fontWeight: 800, color: COLORS.ink, textAlign: "center"}}>
+-      {app.name}
+-    </div>
+-    <div
+-      style={{
+-        marginTop: 6,
+-        fontSize: 30,
+-        fontWeight: 600,
+-        color: COLORS.ink,
+-        opacity: 0.7,
+-        textAlign: "center",
+-        padding: "0 36px",
+-        lineHeight: 1.15,
+-      }}
+-    >
+-      {app.tagline ?? "by Spokio Studio"}
+-    </div>
+-  </div>
+-);
++  );
++};
+ 
+ export const Showcase: React.FC = () => {
+   const frame = useCurrentFrame();
+   const {fps} = useVideoConfig();
++  const {width, isLandscape, isSquare, isPortrait} = useLayout();
++
+   const s = Math.min(APPS.length - 1, Math.floor(frame / STEP));
+   const local = frame - s * STEP;
+   const p = s === 0 ? 0 : s - 1 + Easing.out(Easing.cubic)(Math.min(1, local / TRANS));
+   const intro = spring({frame: frame - 8, fps, config: {damping: 12, stiffness: 140}});
+ 
++  // Tactile micro-pop synced to the landing SFX on each card
++  const landAt = s === 0 ? 8 : 14;
++  const landPop =
++    local >= landAt ? 1 + 0.045 * Math.exp(-((local - landAt) / 4.5)) * Math.sin(((local - landAt) / 2.2)) : 1;
++
++  const metrics: CardMetrics = isPortrait
++    ? {
++        width: 740,
++        height: 820,
++        iconSize: 330,
++        iconRadius: 72,
++        nameSize: 82,
++        taglineSize: 38,
++        radius: 62,
++        barHeight: 28,
++        padTop: 48,
++      }
++    : isSquare
++      ? {
++          width: 570,
++          height: 625,
++          iconSize: 246,
++          iconRadius: 56,
++          nameSize: 66,
++          taglineSize: 30,
++          radius: 52,
++          barHeight: 22,
++          padTop: 38,
++        }
++      : {
++          width: 520,
++          height: 650,
++          iconSize: 256,
++          iconRadius: 58,
++          nameSize: 66,
++          taglineSize: 30,
++          radius: 56,
++          barHeight: 22,
++          padTop: 40,
++        };
++
++  const spacing = isPortrait ? 760 : isSquare ? 630 : 640;
++  const cardTop = isPortrait ? 305 : isSquare ? 225 : 205;
++  const activeColor = APPS[s].color;
++
+   return (
+     <AbsoluteFill>
++      {/* Ambient aura tinted with the active app's color */}
+       <div
+         style={{
+           position: "absolute",
+-          top: 64,
++          left: width / 2 - (isPortrait ? 420 : 380),
++          top: cardTop + metrics.height / 2 - (isPortrait ? 420 : 380),
++          width: isPortrait ? 840 : 760,
++          height: isPortrait ? 840 : 760,
++          borderRadius: "50%",
++          background: `radial-gradient(circle, ${activeColor}2E 0%, transparent 68%)`,
++          transform: `scale(${landPop})`,
++        }}
++      />
++
++      {/* Top header pill + counter */}
++      <div
++        style={{
++          position: "absolute",
++          top: isPortrait ? 176 : isSquare ? 52 : 58,
+           width: "100%",
+           display: "flex",
+           justifyContent: "center",
+@@ -98,58 +224,124 @@
+           style={{
+             background: COLORS.ink,
+             color: COLORS.cream,
+-            fontSize: 44,
++            fontSize: isSquare ? 38 : 44,
+             fontWeight: 800,
+-            padding: "8px 36px",
++            padding: "8px 34px",
+             borderRadius: 999,
++            boxShadow: `6px 6px 0 ${COLORS.mustard}`,
+           }}
+         >
+           The lineup
+         </span>
+-        <span style={{fontSize: 44, fontWeight: 800, color: COLORS.ink}}>
++        <span style={{fontSize: isSquare ? 38 : 44, fontWeight: 800, color: COLORS.ink}}>
+           {s + 1} of {APPS.length}
+         </span>
+       </div>
+ 
++      {/* Carousel cards */}
+       {APPS.map((app, k) => {
+         const d = k - p;
+         const ad = Math.abs(d);
+-        if (ad > 2.2) return null;
+-        const scale = interpolate(ad, [0, 1, 2], [1, 0.74, 0.55], clamp) * (k === 0 ? 0.6 + 0.4 * intro : 1);
+-        const opacity = interpolate(ad, [0, 1, 1.9], [1, 0.6, 0], clamp);
++        if (ad > (isLandscape ? 2.2 : 1.7)) return null;
++        const baseScale = interpolate(ad, [0, 1, 2], [1, 0.75, 0.55], clamp);
++        const scale = baseScale * (k === 0 ? 0.6 + 0.4 * intro : 1) * (k === s ? landPop : 1);
++        const opacity = interpolate(ad, [0, 1, 1.85], [1, 0.58, 0], clamp);
++        const tilt = isPortrait ? d * 5.5 : d * 4;
+         return (
+           <div
+             key={app.name}
+             style={{
+               position: "absolute",
+-              left: 960 + d * SPACING - 260,
+-              top: 220,
++              left: width / 2 + d * spacing - metrics.width / 2,
++              top: cardTop,
+               opacity,
+               zIndex: 10 - Math.round(ad * 3),
+-              transform: `scale(${scale}) rotate(${d * 4}deg)`,
++              transform: `scale(${scale}) rotate(${tilt}deg)`,
+             }}
+           >
+-            <Card app={app} />
++            <Card app={app} index={k} metrics={metrics} />
+           </div>
+         );
+       })}
+ 
++      {/* 9:16 Live 2x5 App Icon Dock — fills vertical space & spotlights the full 10-app suite */}
++      {isPortrait && (
++        <div
++          style={{
++            position: "absolute",
++            top: 1190,
++            width: "100%",
++            display: "flex",
++            justifyContent: "center",
++          }}
++        >
++          <div
++            style={{
++              display: "grid",
++              gridTemplateColumns: "repeat(5, 92px)",
++              gap: 24,
++              padding: "24px 30px",
++              background: `${COLORS.paper}E8`,
++              border: `6px solid ${COLORS.ink}`,
++              borderRadius: 40,
++              boxShadow: `10px 10px 0 ${COLORS.ink}`,
++            }}
++          >
++            {APPS.map((app, i) => {
++              const isActive = i === s;
++              const isSeen = i < s;
++              const badgeFg = app.color === COLORS.mustard ? COLORS.ink : COLORS.cream;
++              return (
++                <div
++                  key={app.name}
++                  style={{
++                    width: 92,
++                    height: 92,
++                    borderRadius: 24,
++                    overflow: "hidden",
++                    background: app.icon ? COLORS.paper : app.color,
++                    border: isActive ? `5px solid ${COLORS.ink}` : `3px solid ${COLORS.ink}`,
++                    boxShadow: isActive ? `0 0 0 5px ${app.color}, 6px 6px 0 ${COLORS.ink}` : "none",
++                    transform: `scale(${isActive ? 1.14 * landPop : isSeen ? 1 : 0.92})`,
++                    opacity: isActive ? 1 : isSeen ? 0.85 : 0.35,
++                    display: "flex",
++                    alignItems: "center",
++                    justifyContent: "center",
++                    color: badgeFg,
++                    fontSize: 44,
++                    fontWeight: 800,
++                    boxSizing: "border-box",
++                  }}
++                >
++                  {app.icon ? (
++                    <Img src={staticFile(app.icon)} style={{width: "100%", height: "100%", objectFit: "cover"}} />
++                  ) : (
++                    app.name.charAt(0)
++                  )}
++                </div>
++              );
++            })}
++          </div>
++        </div>
++      )}
++
++      {/* Progress dots */}
+       <div
+         style={{
+           position: "absolute",
+-          bottom: 62,
++          bottom: isPortrait ? 390 : isSquare ? 52 : 58,
+           width: "100%",
+           display: "flex",
+           justifyContent: "center",
+-          gap: 18,
++          gap: isSquare ? 14 : 18,
+         }}
+       >
+         {APPS.map((app, i) => (
+           <div
+             key={app.name}
+             style={{
+-              width: i === s ? 56 : 22,
+-              height: 22,
++              width: i === s ? (isSquare ? 48 : 56) : isSquare ? 18 : 22,
++              height: isSquare ? 18 : 22,
+               borderRadius: 11,
+               background: i === s ? COLORS.coral : COLORS.ink,
+               opacity: i === s ? 1 : 0.3,
+diff --git a/src/config.ts b/src/config.ts
+--- a/src/config.ts
++++ b/src/config.ts
+@@ -4,6 +4,12 @@
+ export const WIDTH = 1920;
+ export const HEIGHT = 1080;
+ export const BEAT = 15; // frames per beat (music is 120 BPM at 30 fps)
++
++export const FORMATS = {
++  landscape: {id: "Promo", width: WIDTH, height: HEIGHT},
++  square: {id: "PromoSquare", width: 1080, height: 1080},
++  portrait: {id: "PromoVertical", width: 1080, height: 1920},
++} as const;
+ 
+ export const COLORS = {
+   cream: "#FAF3E3",
+diff --git a/src/layout.ts b/src/layout.ts
+new file mode 100644
+--- /dev/null
++++ b/src/layout.ts
+@@ -0,0 +1,34 @@
++import {useVideoConfig} from "remotion";
++
++export type LayoutFormat = "landscape" | "square" | "portrait";
++
++export type LayoutInfo = {
++  format: LayoutFormat;
++  width: number;
++  height: number;
++  isLandscape: boolean;
++  isSquare: boolean;
++  isPortrait: boolean;
++  // Safe margins (clears TikTok/Reels/Shorts HUD overlays in 9:16).
++  safeTop: number;
++  safeBottom: number;
++  safeX: number;
++};
++
++export const useLayout = (): LayoutInfo => {
++  const {width, height} = useVideoConfig();
++  const format: LayoutFormat =
++    width > height ? "landscape" : height > width ? "portrait" : "square";
++
++  return {
++    format,
++    width,
++    height,
++    isLandscape: format === "landscape",
++    isSquare: format === "square",
++    isPortrait: format === "portrait",
++    safeTop: format === "portrait" ? 170 : 56,
++    safeBottom: format === "portrait" ? 260 : 56,
++    safeX: format === "landscape" ? 96 : 64,
++  };
++};
+diff --git a/src/ui.tsx b/src/ui.tsx
+--- a/src/ui.tsx
++++ b/src/ui.tsx
+@@ -7,59 +7,165 @@
+   useCurrentFrame,
+   useVideoConfig,
+ } from "remotion";
+-import {COLORS} from "./config";
++import {BEAT, COLORS} from "./config";
++import {useLayout} from "./layout";
+ 
+ const clamp = {extrapolateLeft: "clamp", extrapolateRight: "clamp"} as const;
+ 
+-// Cream dotted background with a few slow-moving shapes (uses global frame).
++// 4-point neo-brutalist sparkle star.
++export const Sparkle: React.FC<{
++  size?: number;
++  color?: string;
++  style?: React.CSSProperties;
++}> = ({size = 38, color = COLORS.mustard, style}) => (
++  <svg width={size} height={size} viewBox="0 0 64 64" style={{overflow: "visible", ...style}}>
++    <path
++      d="M32 4 C35 22 42 29 60 32 C42 35 35 42 32 60 C29 42 22 35 4 32 C22 29 29 22 32 4 Z"
++      fill={color}
++      stroke={COLORS.ink}
++      strokeWidth="4.5"
++      strokeLinejoin="round"
++    />
++  </svg>
++);
++
++// Cream dotted background with beat-reactive floating shapes adapted per aspect ratio.
+ export const Background: React.FC = () => {
+   const frame = useCurrentFrame();
+-  const drift = (frame * 0.4) % 60;
++  const {isPortrait, isSquare} = useLayout();
++  const dotSpacing = isSquare ? 52 : isPortrait ? 56 : 60;
++  const drift = (frame * 0.4) % dotSpacing;
++  const beatBump = 1 + 0.06 * Math.exp(-((frame % BEAT) / 3.5));
++
++  const circleSize = isSquare ? 68 : isPortrait ? 82 : 90;
++  const sqSize = isSquare ? 62 : isPortrait ? 76 : 80;
++  const ringSize = isSquare ? 58 : isPortrait ? 68 : 70;
++
+   return (
+-    <AbsoluteFill style={{background: COLORS.cream}}>
++    <AbsoluteFill style={{background: COLORS.cream, overflow: "hidden"}}>
++      {/* Subtle warm ambient corner washes */}
++      <div
++        style={{
++          position: "absolute",
++          left: isPortrait ? -180 : -140,
++          top: isPortrait ? 80 : -120,
++          width: isSquare ? 520 : 680,
++          height: isSquare ? 520 : 680,
++          borderRadius: "50%",
++          background: `radial-gradient(circle, ${COLORS.teal}20 0%, transparent 68%)`,
++        }}
++      />
++      <div
++        style={{
++          position: "absolute",
++          right: isPortrait ? -180 : -140,
++          bottom: isPortrait ? 120 : -120,
++          width: isSquare ? 520 : 680,
++          height: isSquare ? 520 : 680,
++          borderRadius: "50%",
++          background: `radial-gradient(circle, ${COLORS.mustard}28 0%, transparent 68%)`,
++        }}
++      />
++
++      {/* Drifting dot grid */}
+       <AbsoluteFill
+         style={{
+           backgroundImage: `radial-gradient(${COLORS.creamDark} 3px, transparent 3px)`,
+-          backgroundSize: "60px 60px",
++          backgroundSize: `${dotSpacing}px ${dotSpacing}px`,
+           backgroundPosition: `${drift}px ${drift}px`,
+         }}
+       />
+-      <div
+-        style={{
+-          position: "absolute",
+-          left: 70,
+-          top: 90 + Math.sin(frame / 25) * 14,
+-          width: 90,
+-          height: 90,
++
++      {/* Top-left coral orb */}
++      <div
++        style={{
++          position: "absolute",
++          left: isPortrait ? 52 : isSquare ? 42 : 70,
++          top: (isPortrait ? 92 : isSquare ? 46 : 90) + Math.sin(frame / 25) * 14,
++          width: circleSize,
++          height: circleSize,
+           borderRadius: "50%",
+           background: COLORS.coral,
+-          opacity: 0.9,
+-        }}
+-      />
+-      <div
+-        style={{
+-          position: "absolute",
+-          right: 110,
+-          bottom: 100 + Math.cos(frame / 30) * 14,
+-          width: 80,
+-          height: 80,
++          border: `5px solid ${COLORS.ink}`,
++          boxSizing: "border-box",
++          opacity: 0.92,
++          transform: `scale(${beatBump})`,
++        }}
++      />
++
++      {/* Bottom-right rotating mustard squircle */}
++      <div
++        style={{
++          position: "absolute",
++          right: isPortrait ? 60 : isSquare ? 46 : 110,
++          bottom: (isPortrait ? 130 : isSquare ? 52 : 100) + Math.cos(frame / 30) * 14,
++          width: sqSize,
++          height: sqSize,
+           background: COLORS.mustard,
++          border: `5px solid ${COLORS.ink}`,
++          boxSizing: "border-box",
+           borderRadius: 18,
+-          transform: `rotate(${frame * 0.6}deg)`,
+-        }}
+-      />
+-      <div
+-        style={{
+-          position: "absolute",
+-          right: 190,
+-          top: 80 + Math.sin(frame / 20 + 2) * 10,
+-          width: 70,
+-          height: 70,
+-          borderRadius: "50%",
+-          border: `12px solid ${COLORS.teal}`,
+-          boxSizing: "border-box",
+-        }}
+-      />
++          transform: `rotate(${frame * 0.6}deg) scale(${beatBump})`,
++        }}
++      />
++
++      {/* Top-right teal ring */}
++      <div
++        style={{
++          position: "absolute",
++          right: isPortrait ? 72 : isSquare ? 52 : 190,
++          top: (isPortrait ? 120 : isSquare ? 54 : 80) + Math.sin(frame / 20 + 2) * 10,
++          width: ringSize,
++          height: ringSize,
++          borderRadius: "50%",
++          border: `11px solid ${COLORS.teal}`,
++          boxSizing: "border-box",
++        }}
++      />
++
++      {/* Bottom-left accent pill/sparkle (balances tall 9:16 and tight 1:1 corners) */}
++      <div
++        style={{
++          position: "absolute",
++          left: isPortrait ? 68 : isSquare ? 50 : 96,
++          bottom: (isPortrait ? 160 : isSquare ? 56 : 86) + Math.sin(frame / 22 + 1) * 10,
++          transform: `rotate(${-frame * 0.8}deg) scale(${beatBump})`,
++        }}
++      >
++        <Sparkle size={isPortrait ? 52 : 40} color={COLORS.teal} />
++      </div>
++
++      {/* Extra mid-edge pill accents for tall 9:16 canvas */}
++      {isPortrait && (
++        <>
++          <div
++            style={{
++              position: "absolute",
++              left: -26,
++              top: 860 + Math.sin(frame / 28) * 18,
++              width: 58,
++              height: 112,
++              borderRadius: 999,
++              background: COLORS.mustard,
++              border: `5px solid ${COLORS.ink}`,
++              opacity: 0.75,
++            }}
++          />
++          <div
++            style={{
++              position: "absolute",
++              right: -24,
++              top: 1160 + Math.cos(frame / 26) * 18,
++              width: 54,
++              height: 54,
++              borderRadius: "50%",
++              background: COLORS.coral,
++              border: `5px solid ${COLORS.ink}`,
++              opacity: 0.75,
++            }}
++          />
++        </>
++      )}
+     </AbsoluteFill>
+   );
+ };
+@@ -69,7 +175,9 @@
+   at: number;
+   children: React.ReactNode;
+   style?: React.CSSProperties;
+-}> = ({at, children, style}) => {
++  origin?: string;
++  distance?: number;
++}> = ({at, children, style, origin = "0% 50%", distance = 40}) => {
+   const frame = useCurrentFrame();
+   const {fps} = useVideoConfig();
+   const s = spring({frame: frame - at, fps, config: {damping: 12, stiffness: 180, mass: 0.6}});
+@@ -78,8 +186,8 @@
+     <div
+       style={{
+         opacity,
+-        transform: `translateY(${(1 - s) * 40}px) scale(${0.85 + 0.15 * s})`,
+-        transformOrigin: "0% 50%",
++        transform: `translateY(${(1 - s) * distance}px) scale(${0.85 + 0.15 * s})`,
++        transformOrigin: origin,
+         ...style,
+       }}
+     >
+@@ -88,17 +196,47 @@
+   );
+ };
+ 
+-// Full-screen slab that slides across at a scene boundary.
++// Full-screen slab that slides horizontally (16:9, 1:1) or vertically (9:16) at scene boundaries.
+ export const Wipe: React.FC<{at: number; color: string; lag?: number}> = ({at, color, lag = 0}) => {
+   const frame = useCurrentFrame();
+-  const {width} = useVideoConfig();
++  const {width, height, isPortrait} = useLayout();
+   const p = (frame - (at - 9 + lag)) / 18;
+   if (p <= 0 || p >= 1) return null;
++
++  if (isPortrait) {
++    // Bottom-to-top swipe for native vertical short-form energy
++    const y =
++      p < 0.5
++        ? height * (1 - Easing.out(Easing.cubic)(p * 2))
++        : -height * Easing.in(Easing.cubic)((p - 0.5) * 2);
++    return (
++      <AbsoluteFill
++        style={{
++          transform: `translateY(${y}px)`,
++          background: color,
++          borderTop: `8px solid ${COLORS.ink}`,
++          borderBottom: `8px solid ${COLORS.ink}`,
++          boxSizing: "border-box",
++        }}
++      />
++    );
++  }
++
+   const x =
+     p < 0.5
+       ? -width * (1 - Easing.out(Easing.cubic)(p * 2))
+       : width * Easing.in(Easing.cubic)((p - 0.5) * 2);
+-  return <AbsoluteFill style={{transform: `translateX(${x}px)`, background: color}} />;
++  return (
++    <AbsoluteFill
++      style={{
++        transform: `translateX(${x}px)`,
++        background: color,
++        borderLeft: `8px solid ${COLORS.ink}`,
++        borderRight: `8px solid ${COLORS.ink}`,
++        boxSizing: "border-box",
++      }}
++    />
++  );
+ };
+ 
+ export const XGlyph: React.FC<{size: number}> = ({size}) => (
+@@ -108,12 +246,21 @@
+   </svg>
+ );
+ 
+-export const Arrow: React.FC<{size?: number}> = ({size = 70}) => (
+-  <svg width={size} height={size * 0.6} viewBox="0 0 70 42">
++export const Arrow: React.FC<{size?: number; rotate?: number; color?: string}> = ({
++  size = 70,
++  rotate = 0,
++  color = COLORS.ink,
++}) => (
++  <svg
++    width={size}
++    height={size * 0.6}
++    viewBox="0 0 70 42"
++    style={{transform: rotate ? `rotate(${rotate}deg)` : undefined, display: "block"}}
++  >
+     <path
+       d="M4 21 H56 M42 6 L58 21 L42 36"
+       fill="none"
+-      stroke={COLORS.ink}
++      stroke={color}
+       strokeWidth="8"
+       strokeLinecap="round"
+       strokeLinejoin="round"
