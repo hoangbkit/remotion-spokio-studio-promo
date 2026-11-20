@@ -13,6 +13,11 @@ on:
           - '16:9'
           - '1:1'
           - '9:16'
+      include_webm:
+        description: 'Also render muted webm loops (for website hero)'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -50,33 +55,22 @@ jobs:
       - name: Render videos and posters
         env:
           FORMAT: ${{ inputs.format }}
+          INCLUDE_WEBM: ${{ inputs.include_webm }}
         run: |
           set -euo pipefail
           case "$FORMAT" in
-            '16:9')
-              npm run build
-              npm run build:loop
-              npm run poster
-              ;;
-            '1:1')
-              npm run build:square
-              npm run build:loop:square
-              npm run poster:square
-              ;;
-            '9:16')
-              npm run build:vertical
-              npm run build:loop:vertical
-              npm run poster:vertical
-              ;;
-            all)
-              npm run build:all
-              npm run build:loop
-              npm run build:loop:square
-              npm run build:loop:vertical
-              npm run poster:all
-              ;;
+            '16:9')  build=build;          loop=build:loop;         poster=poster ;;
+            '1:1')   build=build:square;   loop=build:loop:square;  poster=poster:square ;;
+            '9:16')  build=build:vertical; loop=build:loop:vertical; poster=poster:vertical ;;
+            all)     build=build:all;      loop="build:loop build:loop:square build:loop:vertical"; poster=poster:all ;;
             *) echo "error: unknown format: $FORMAT" >&2; exit 1 ;;
           esac
+
+          npm run "$build"
+          npm run "$poster"
+          if [[ "$INCLUDE_WEBM" == "true" ]]; then
+            for script in $loop; do npm run "$script"; done
+          fi
 
       - name: Stage release assets
         run: |
