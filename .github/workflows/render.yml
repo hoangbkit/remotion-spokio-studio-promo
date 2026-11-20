@@ -2,6 +2,17 @@ name: Render Remotion Video
 
 on:
   workflow_dispatch:
+    inputs:
+      format:
+        description: 'Video size to render'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - '16:9'
+          - '1:1'
+          - '9:16'
 
 permissions:
   contents: write
@@ -36,13 +47,36 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Render videos
+      - name: Render videos and posters
+        env:
+          FORMAT: ${{ inputs.format }}
         run: |
-          npm run build:all
-          npm run build:loop
-
-      - name: Render poster
-        run: npm run poster:all
+          set -euo pipefail
+          case "$FORMAT" in
+            '16:9')
+              npm run build
+              npm run build:loop
+              npm run poster
+              ;;
+            '1:1')
+              npm run build:square
+              npm run build:loop:square
+              npm run poster:square
+              ;;
+            '9:16')
+              npm run build:vertical
+              npm run build:loop:vertical
+              npm run poster:vertical
+              ;;
+            all)
+              npm run build:all
+              npm run build:loop
+              npm run build:loop:square
+              npm run build:loop:vertical
+              npm run poster:all
+              ;;
+            *) echo "error: unknown format: $FORMAT" >&2; exit 1 ;;
+          esac
 
       - name: Stage release assets
         run: |

@@ -59,7 +59,9 @@ run `npm run audio` (needs ffmpeg for the mp3). To use your own track, replace t
 ## CI / releases
 
 `.github/workflows/render.yml` runs only when triggered manually from the Actions tab.
-It installs dependencies, typechecks, renders all 3 MP4 formats, the muted webm loop, and
-posters for all 3 formats, then publishes them as a GitHub pre-release tagged
-`remotion-build-<run-id>-<attempt>` with assets named `<repo>-<output>-<tag>.<ext>`.
+The **Video size to render** dropdown lets you pick `16:9`, `1:1`, `9:16`, or `all`
+(the default). The selected size controls which MP4, muted webm loop, and poster get
+rendered; `all` produces every format. It installs dependencies, typechecks, then
+publishes the results as a GitHub pre-release tagged `remotion-build-<run-id>-<attempt>`
+with assets named `<repo>-<output>-<tag>.<ext>`.
 The 16:9 MP4 stays compatible with `mycli remotion play`.
